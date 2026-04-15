@@ -1,9 +1,7 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
-import joblib
-import os
-import numpy.random._pickle  # Fix for pickle compatibility
+from xgboost import XGBClassifier
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
@@ -12,7 +10,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# ---------------- CUSTOM CSS ----------------
+# ---------------- CUSTOM STYLING ----------------
 st.markdown("""
     <style>
     .main {
@@ -27,39 +25,31 @@ st.markdown("""
         height: 3em;
         width: 100%;
     }
-    .stNumberInput input {
-        border-radius: 8px;
-    }
     </style>
 """, unsafe_allow_html=True)
 
 # ---------------- TITLE ----------------
 st.title("🤖 AI Smart Prediction System")
-st.markdown("### 🚀 Predict outcomes using Machine Learning")
-st.write("Fill in the details below and get instant intelligent predictions.")
+st.markdown("### 🚀 Intelligent Predictions using Machine Learning")
+st.write("Fill in the feature values and get instant predictions with confidence.")
 
 # ---------------- LOAD MODEL ----------------
 @st.cache_resource
 def load_model():
-    try:
-        model_path = os.path.join(os.getcwd(), "model.pkl")
-        model = joblib.load(model_path)
-        return model
-    except Exception as e:
-        return str(e)
+    model = XGBClassifier()
+    model.load_model("model.json")   # ✅ IMPORTANT
+    return model
 
-model = load_model()
-
-# ---------------- ERROR HANDLING ----------------
-if isinstance(model, str):
-    st.error(f"❌ Model loading failed: {model}")
+try:
+    model = load_model()
+    st.success("✅ Model loaded successfully!")
+except Exception as e:
+    st.error(f"❌ Model loading failed: {e}")
     st.stop()
 
-st.success("✅ Model loaded successfully!")
-
 # ---------------- SIDEBAR ----------------
-st.sidebar.title("⚙️ App Controls")
-st.sidebar.info("Adjust input values and click Predict")
+st.sidebar.title("⚙️ Controls")
+st.sidebar.info("Enter input values and click Predict")
 
 # ---------------- INPUT SECTION ----------------
 st.subheader("📊 Enter Feature Values")
@@ -67,22 +57,20 @@ st.subheader("📊 Enter Feature Values")
 col1, col2 = st.columns(2)
 
 with col1:
-    feature1 = st.number_input("Feature 1", min_value=0.0, value=10.0)
-    feature2 = st.number_input("Feature 2", min_value=0.0, value=20.0)
+    f1 = st.number_input("Feature 1", value=10.0)
+    f2 = st.number_input("Feature 2", value=20.0)
 
 with col2:
-    feature3 = st.number_input("Feature 3", min_value=0.0, value=30.0)
-    feature4 = st.number_input("Feature 4", min_value=0.0, value=40.0)
+    f3 = st.number_input("Feature 3", value=30.0)
+    f4 = st.number_input("Feature 4", value=40.0)
 
-# 👉 EDIT FEATURES COUNT BASED ON YOUR MODEL
-input_data = np.array([[feature1, feature2, feature3, feature4]])
+# 👉 Adjust number of features if needed
+input_data = np.array([[f1, f2, f3, f4]])
 
 # ---------------- PREDICTION ----------------
 if st.button("🚀 Predict Now"):
-
     try:
         prediction = model.predict(input_data)
-
         st.success(f"🎯 Prediction Result: {prediction[0]}")
 
         # ---------------- PROBABILITY ----------------
@@ -101,16 +89,16 @@ if st.button("🚀 Predict Now"):
         ])
         st.dataframe(df)
 
-        # ---------------- SIMPLE INTERPRETATION ----------------
+        # ---------------- AI INTERPRETATION ----------------
         st.subheader("🧠 AI Insight")
         if prediction[0] == 1:
-            st.warning("⚠️ Model indicates HIGH probability of positive outcome.")
+            st.warning("⚠️ High probability of positive outcome.")
         else:
-            st.success("✅ Model indicates LOW probability of risk.")
+            st.success("✅ Low probability / safe outcome.")
 
     except Exception as e:
         st.error(f"❌ Prediction error: {e}")
 
 # ---------------- FOOTER ----------------
 st.markdown("---")
-st.markdown("✨ Built with ❤️ using Streamlit | AI Project by You")
+st.markdown("✨ Built with ❤️ using Streamlit | AI Project")
