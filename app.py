@@ -1,6 +1,7 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
+import joblib
 from xgboost import XGBClassifier
 
 # ---------------- PAGE CONFIG ----------------
@@ -10,95 +11,77 @@ st.set_page_config(
     layout="centered"
 )
 
-# ---------------- CUSTOM STYLING ----------------
-st.markdown("""
-    <style>
-    .main {
-        background-color: #0E1117;
-        color: white;
-    }
-    .stButton>button {
-        background: linear-gradient(90deg, #4CAF50, #00C9A7);
-        color: white;
-        font-size: 18px;
-        border-radius: 10px;
-        height: 3em;
-        width: 100%;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# ---------------- TITLE ----------------
 st.title("🤖 AI Smart Prediction System")
 st.markdown("### 🚀 Intelligent Predictions using Machine Learning")
-st.write("Fill in the feature values and get instant predictions with confidence.")
 
-# ---------------- LOAD MODEL ----------------
+# ---------------- LOAD FILES ----------------
 @st.cache_resource
-def load_model():
+def load_all():
     model = XGBClassifier()
-    model.load_model("model.json")   # ✅ IMPORTANT
-    return model
+    model.load_model("model.json")   # your model
+
+    scaler = joblib.load("scaler.pkl")   # scaling
+    columns = joblib.load("columns.pkl") # feature names
+
+    return model, scaler, columns
 
 try:
-    model = load_model()
+    model, scaler, columns = load_all()
     st.success("✅ Model loaded successfully!")
 except Exception as e:
-    st.error(f"❌ Model loading failed: {e}")
+    st.error(f"❌ Loading error: {e}")
     st.stop()
 
-# ---------------- SIDEBAR ----------------
-st.sidebar.title("⚙️ Controls")
-st.sidebar.info("Enter input values and click Predict")
+# ---------------- USER INPUT ----------------
+st.subheader("📊 Enter Important Feature Values")
 
-# ---------------- INPUT SECTION ----------------
-st.subheader("📊 Enter Feature Values")
+# Example: show only first few important features (edit if needed)
+important_features = columns[:5]
 
-col1, col2 = st.columns(2)
+user_input = {}
 
-with col1:
-    f1 = st.number_input("Feature 1", value=10.0)
-    f2 = st.number_input("Feature 2", value=20.0)
+for col in important_features:
+    user_input[col] = st.number_input(f"{col}", value=0.0)
 
-with col2:
-    f3 = st.number_input("Feature 3", value=30.0)
-    f4 = st.number_input("Feature 4", value=40.0)
+# ---------------- CREATE FULL INPUT ----------------
+# fill all 81 features with 0
+full_input = {col: 0 for col in columns}
 
-# 👉 Adjust number of features if needed
-input_data = np.array([[f1, f2, f3, f4]])
+# update with user values
+full_input.update(user_input)
+
+# convert to dataframe
+input_df = pd.DataFrame([full_input])
+
+# ---------------- SCALE ----------------
+try:
+    input_scaled = scaler.transform(input_df)
+except Exception as e:
+    st.error(f"Scaling error: {e}")
+    st.stop()
 
 # ---------------- PREDICTION ----------------
 if st.button("🚀 Predict Now"):
     try:
-        prediction = model.predict(input_data)
-        st.success(f"🎯 Prediction Result: {prediction[0]}")
+        prediction = model.predict(input_scaled)
+        st.success(f"🎯 Prediction: {prediction[0]}")
 
-        # ---------------- PROBABILITY ----------------
+        # probability
         if hasattr(model, "predict_proba"):
-            prob = model.predict_proba(input_data)
+            prob = model.predict_proba(input_scaled)
             confidence = np.max(prob) * 100
 
-            st.subheader("📈 Prediction Confidence")
+            st.subheader("📈 Confidence")
             st.progress(int(confidence))
-            st.write(f"Confidence Score: **{confidence:.2f}%**")
+            st.write(f"{confidence:.2f}%")
 
-        # ---------------- INPUT SUMMARY ----------------
-        st.subheader("📋 Input Summary")
-        df = pd.DataFrame(input_data, columns=[
-            "Feature 1", "Feature 2", "Feature 3", "Feature 4"
-        ])
-        st.dataframe(df)
-
-        # ---------------- AI INTERPRETATION ----------------
-        st.subheader("🧠 AI Insight")
-        if prediction[0] == 1:
-            st.warning("⚠️ High probability of positive outcome.")
-        else:
-            st.success("✅ Low probability / safe outcome.")
+        # show input
+        st.subheader("📋 Input Snapshot")
+        st.dataframe(input_df[important_features])
 
     except Exception as e:
         st.error(f"❌ Prediction error: {e}")
 
 # ---------------- FOOTER ----------------
 st.markdown("---")
-st.markdown("✨ Built with ❤️ using Streamlit | AI Project")
+st.markdown("✨ Built with Streamlit | AI Project")
